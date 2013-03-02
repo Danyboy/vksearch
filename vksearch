@@ -16,10 +16,12 @@ vkapi_id="5807425"
 
 cfg_save_to="."
 cfg_new_playlist='1'
+cfg_playlist_format='pls'
 cfg_write_tags='1'
 cfg_search_count='200'
-cfg_mplayer='/usr/bin/mplayer -playlist'
+cfg_mplayer='xdg-open'
 cfg_wget="/usr/bin/curl -#"
+cfg_silent_wget='/usr/bin/curl -# --silent'
 cfg_mode='play'
 cfg_silent_mode='0'
 cfg_single_get='0'
@@ -36,6 +38,7 @@ ShowHelp() {
  echo -e "* Использование: vksearch [опции] запрос"
  echo -e "\t--help: показать это сообщение и закрыть vksearch\n"
  echo -e "\t--user-playlist: использовать плейлист пользователя по ID"
+ echo -e "\t--playlist-format: указать нужный формат плейлиста (m3u, pls, xpsf)"
  echo -e "\t--search: использовать поиск по всей коллекции ВК\n"
  echo -e "\t--play: проиграть найденный список треков"
  echo -e "\t--get: скачать найденный список треков"
@@ -68,11 +71,12 @@ do
   --get-album) cfg_mode=get-album && cfg_search_count=1 && cfg_silent_mode=1 ;;
   --get-lyrics) cfg_mode=get-lyrics && cfg_search_count=1 && cfg_request_lyrics=1;;
   --make-playlist) cfg_mode=make-playlist ;;
+  --playlist-format=*) cfg_playlist_format=$(echo $var | cut -d '=' -f 2) ;;
 
   --count=*) cfg_search_count=$(echo $var | cut -d '=' -f 2) ;;
   --save-to=*) cfg_save_to=$(echo $var | cut -d '=' -f 2) ;;
   --write-tags) cfg_write_tags=1 ;;
-  --silent) cfg_silent_mode=1 && cfg_wget="$cfg_wget --silent";;
+  --silent) cfg_silent_mode=1 && cfg_wget="$cfg_silent_wget";;
 
   --*) Info "Ошибка разбора аргументов: Неизвестный параметр $var" die ;;
 
@@ -128,33 +132,33 @@ Parse() {
  IFS=$OLD_IFS
 }
 
-RemoveDoubles() {
- rm ${sys_temp}/vksearch.pars* 2>&-
- Info "Начинаю удаление треков с одинаковой длительностью..."
- for i in `seq 0 $song_counts`
- do
-  echo "<1>${song_durations[$i]}<2>${song_artists[$i]}<3>${song_titles[$i]}<4>${song_urls[$i]}<5>" >> ${sys_temp}/vksearch.parsing 
- done
- cat ${sys_temp}/vksearch.parsing | /bin/sort -n | uniq -w 6 > ${sys_temp}/vksearch.parsed
- OLD_IFS=$IFS
- IFS=$'\n'
- song_urls=( `cat ${sys_temp}/vksearch.parsed |sed -ne 's,.*<4>\([^<]*\)<5>.*,\1,p' ` )
- song_artists=( `cat ${sys_temp}/vksearch.parsed |sed -ne 's,.*<2>\([^<]*\)<3>.*,\1,p' ` )
- song_titles=( `cat ${sys_temp}/vksearch.parsed | sed -ne 's,.*<3>\([^<]*\)<4>.*,\1,p' ` )
- song_durations=( `cat ${sys_temp}/vksearch.parsed |sed -ne 's,.*<1>\([^<]*\)<2>.*,\1,p' ` )
- song_counts=$(( ${#song_urls[@]} - 1 ))
- IFS=$OLD_IFS
- Info "В плейлисте осталось ${#song_urls[@]} треков." 
-} 
-
 MakePlaylist() {
- [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.m3u 2>&-
- [ -f "$cfg_save_to/VKontakte_PlayList.m3u" ] || echo -ne "#EXTM3U\n" > $cfg_save_to/VKontakte_PlayList.m3u
- for i in `seq 0 $song_counts` 
- do
-  echo -e "#EXTINF:${song_durations[$i]},${song_artists[$i]} - ${song_titles[$i]}\n${song_urls[$i]}\n" >> $cfg_save_to/VKontakte_PlayList.m3u
- done
- Info "Плейлист сохранен как $cfg_save_to/VKontakte_PlayList.m3u"
+ [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.$cfg_playlist_format 2>&-
+ case $cfg_playlist_format in
+  m3u)
+    [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] || echo "#EXTM3U" > "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
+    for i in `seq 0 $song_counts` 
+    do
+     echo -e "#EXTINF:${song_durations[$i]},${song_artists[$i]} - ${song_titles[$i]}\n${song_urls[$i]}\n" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
+    done ;;
+  pls)
+    [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] || echo "[playlist]" > "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
+    current_number=0
+    for i in `seq 0 $song_counts`
+    do
+     current_number=$(($i+1))
+     echo -e "File${current_number}=${song_urls[$i]}\nTitle${current_number}=${song_artists[$i]} - ${song_titles[$i]}\nLength${current_number}=${song_durations[$i]}" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
+    done
+    echo -e "NumberOfEntries=${current_number}\nVersion=2" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ;;
+  xpsf)
+    [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] || echo -e '<?xml version="1.0" encoding="UTF-8"?>\n<playlist version="1" xmlns="http://xspf.org/ns/0/">\n<trackList>' > "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
+    for i in `seq 0 $song_counts`
+    do
+     echo -e "<track>\n<title>${song_artists[$i]} - ${song_titles[$i]}</title>\n<location>${song_urls[$i]}</location>\n</track>" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
+    done
+    echo -e "</trackList>\n</playlist>" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ;;
+ esac
+ [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] && Info "Плейлист сохранен как $cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" 
 }
 
 GetFiles() {
@@ -174,7 +178,6 @@ GetLyrics() {
  cat ${sys_temp}/vksearch.lyrics|sed 's/<.*>//g;/^[[:space:]]*$/d' > "${song_artists[0]} - ${song_titles[0]}.txt"
  Info "Текст песни ${song_artists[0]} - ${song_titles[0]} сохранён!"
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.txt" 
-
 }
 
 GetAlbum() {
@@ -221,12 +224,11 @@ mkdir -p ${sys_temp}
 GetParams $*
 Request
 Parse
-#RemoveDoubles
 
 case $cfg_mode in
  play)
     MakePlaylist
-    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.m3u" >/dev/null 2>&1 ;;
+    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.${cfg_playlist_format}" ;;
  get)
     GetFiles ;; 
  make-playlist)
