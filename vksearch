@@ -17,7 +17,7 @@ vkapi_id="5807425"
 cfg_save_to="."
 cfg_new_playlist='1'
 cfg_playlist_format='pls'
-cfg_write_tags='1'
+cfg_write_tags='0'
 cfg_search_count='200'
 cfg_mplayer='xdg-open'
 cfg_wget="/usr/bin/curl -#"
@@ -47,9 +47,10 @@ ShowHelp() {
  echo -e "\t--make-playlist: создать плейлист\n"
  echo -e "\t--count=N: искать N треков"
  echo -e "\t--save-to=PATH: сохранять плейлист и треки в указанный PATH"
- echo -e "\t--write-tags: записывать Id3v2 теги в скачанные треки"
+ echo -e "\t--write-tags: записывать id3 теги в скачанные треки"
  echo -e "\t--get-lyrics: скачать текст песни"
  echo -e "\t--get-album: скачать альбом"
+ echo -e "\t--get-discography: скачать дискографию"
  echo -e "\t--silent: тихий режим"
 
  exit 0
@@ -69,6 +70,7 @@ do
   --play-one) cfg_mode=play && cfg_search_count=1 ;;
   --get-one) cfg_mode=get && cfg_search_count=1 ;;
   --get-album) cfg_mode=get-album && cfg_search_count=1 && cfg_silent_mode=1 ;;
+  --get-discography) cfg_mode=get-discography  && cfg_search_count=1 && cfg_silent_mode=1  ;;
   --get-lyrics) cfg_mode=get-lyrics && cfg_search_count=1 && cfg_request_lyrics=1;;
   --make-playlist) cfg_mode=make-playlist ;;
   --playlist-format=*) cfg_playlist_format=$(echo $var | cut -d '=' -f 2) ;;
@@ -168,7 +170,7 @@ GetFiles() {
    Info "Начинаю закачку: ${song_artists[$i]} - ${song_titles[$i]}"
    $cfg_wget "${song_urls[$i]}" > "${song_artists[$i]} - ${song_titles[$i]}.mp3" 
    Info "Файл ${song_artists[$i]} - ${song_titles[$i]} был загружен!"
-   [ "$cfg_write_tags" -eq 1 ]  &&  id3v2 -2 -a "${song_artists[$i]}" -t "${song_titles[$i]}" "${song_artists[$i]} - ${song_titles[$i]}.mp3"
+   [ "$cfg_write_tags" -eq 1 ]  &&  id3 -2 -a "${song_artists[$i]}" -t "${song_titles[$i]}" "${song_artists[$i]} - ${song_titles[$i]}.mp3"
   done
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.mp3" 
 }
@@ -185,6 +187,7 @@ GetAlbum() {
  rm ${sys_temp}/lastfm_tracks 2>/dev/null
  artist="$(echo $query | cut -d '-' -f 1|sed 's/[ \t]$//')"
  album="$(echo $query | cut -d '-' -f 2|sed 's/^[ \t]*//')"
+ echo "Saving $artist - $album"
  [ -d "$album" ] || mkdir "$album" 
  cd "$album"
  [ -d lyrics ] || mkdir lyrics 
@@ -209,8 +212,8 @@ GetAlbum() {
   real="$artist - $track"
   mv "$saved" "$real.mp3" 2>/dev/null
   echo -n "Writing tags.. "
-  id3v2 -D "$real.mp3" >/dev/null 2>&1
-  id3v2 -2 -a "$artist" -A "$album" -t "$track" -y $year -T $current/$count "$real.mp3" >/dev/null 2>&1
+  id3 -D "$real.mp3" >/dev/null 2>&1
+  id3 -2 -a "$artist" -A "$album" -t "$track" -y $year -T $current/$count "$real.mp3" >/dev/null 2>&1
   echo "Saving lyrics.."
   saved_lyrics="$($0 --silent --get-lyrics $artist - $track)"
   mv "$saved_lyrics" "lyrics/$real.txt"
@@ -218,6 +221,21 @@ GetAlbum() {
  done
 
  IFS="$OLD_IFS"
+}
+
+GetDiscography() {
+  cd "$cfg_save_to"
+  rm ${sys_temp}/lastfm_albums 2>/dev/null
+  artist=$query
+  [ -d "$artist" ] || mkdir "$artist"
+  cd "$artist"
+  wget "http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=Krypteria&api_key=efe0e53182441c48f5b11f3565306e30" -qO ${sys_temp}/lastfm_request
+  OLD_IFS="$IFS"
+  IFS=$'\n'
+  for album in $(cat ${sys_temp}/lastfm_request|grep name|grep -vEi ">$query<"|grep -oE '>.*<'|sed 's/<$//;s/^>//;') ; do
+    $0 --save-to=. --get-album "$artist" - "$album" 
+    cd "$cfg_save_to"
+  done
 }
 
 mkdir -p ${sys_temp}
@@ -239,4 +257,6 @@ case $cfg_mode in
     GetLyrics ;;
  get-album)
     GetAlbum;;
+ get-discography)
+    GetDiscography;;
 esac
