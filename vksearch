@@ -229,7 +229,7 @@ GetDiscography() {
   artist=$query
   [ -d "$artist" ] || mkdir "$artist"
   cd "$artist"
-  wget "http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=Krypteria&api_key=efe0e53182441c48f5b11f3565306e30" -qO ${sys_temp}/lastfm_request
+  wget "http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=$query&api_key=efe0e53182441c48f5b11f3565306e30" -qO ${sys_temp}/lastfm_request
   OLD_IFS="$IFS"
   IFS=$'\n'
   for album in $(cat ${sys_temp}/lastfm_request|grep name|grep -vEi ">$query<"|grep -oE '>.*<'|sed 's/<$//;s/^>//;') ; do
