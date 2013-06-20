@@ -9,13 +9,12 @@
 sys_version="0.6b"
 sys_temp='/tmp' 
 sys_method='audio.search'
-
 vkapi_token='3a582f82cd975ace6015cd56e3e6eb3fff57961dccec60850a6272915f547132d616ae4ea0330a19725b9'  # для получения нового токена пройдите по ссылке: https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
-
 cfg_save_to="."
 cfg_new_playlist='1'
 cfg_write_tags='0'
 cfg_search_count='300'
+cfg_request_lyrics='0'
 cfg_mplayer='mplayer -playlist'
 cfg_wget="wget -qO - "
 cfg_silent_wget='wget -qO - '
@@ -88,7 +87,7 @@ Request() {
     wget --no-check-certificate "https://api.vk.com/method/audio.get.xml?oid=$query&fields=uid&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) ;;
   "audio.search")
-    wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
+    wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&lyrics=${cfg_request_lyrics}&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
     found=$(cat ${sys_temp}/vksearch.out | sed -ne 's,<count>\([^<]*\)</count>,\1,p'|sed 's/^[ \t]*//') ;;
   "audio.getLyrics")
     query="$(cat ${sys_temp}/vksearch.out | sed -n 's|<lyrics_id>\(.*\)</lyrics_id>|\1|p'|sed 's/^[ \t]*//')"
@@ -141,7 +140,7 @@ GetFiles() {
 
 GetLyrics() {
  cd "$cfg_save_to"
- cat ${sys_temp}/vksearch.lyrics|sed 's/<.*>//g;/^[[:space:]]*$/d' > "${song_artists[0]} - ${song_titles[0]}.txt"
+ cat ${sys_temp}/vksearch.lyrics|sed 's/<.*>//g;s/&quot;/"/g;/^[[:space:]]*$/d' > "${song_artists[0]} - ${song_titles[0]}.txt"
  Info "Текст песни ${song_artists[0]} - ${song_titles[0]} сохранён!"
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.txt" 
 }
