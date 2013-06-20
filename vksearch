@@ -31,7 +31,7 @@ Info() {
 
 ShowHelp() {
  echo  "VKSearch $sys_version: Поиск, прослушивание и закачка музыки с сайта VKontakte.ru!"
- echo "Для работы скрипта не требуется авторизация ВКонтакте. by snoopcatt, © 2010-2011. Лицензировано под GNU GPL v2."
+ echo "Для работы скрипта не требуется авторизация ВКонтакте. by snoopcatt, © 2010-2013. Лицензировано под GNU GPL v2."
  echo -e "* Использование: vksearch [опции] запрос"
  echo -e "\t--help: показать это сообщение и закрыть vksearch\n"
  echo -e "\t--user-playlist: использовать плейлист пользователя по ID"
@@ -55,27 +55,19 @@ for var in $@
 do
  case $var in
   --help) ShowHelp;;
-
   --user-playlist) sys_method='audio.get' ;;
   --search) sys_method='audio.search' ;;
-
   --play) cfg_mode=play ;;
   --get) cfg_mode=get ;;
   --play-one) cfg_mode=play && cfg_search_count=1 ;;
   --get-one) cfg_mode=get && cfg_search_count=1 ;;
-  --get-album) cfg_mode=get-album && cfg_search_count=1 && cfg_silent_mode=1 ;;
-  --get-discography) cfg_mode=get-discography  && cfg_search_count=1 && cfg_silent_mode=1  ;;
   --get-lyrics) cfg_mode=get-lyrics && cfg_search_count=1 && cfg_request_lyrics=1;;
   --make-playlist) cfg_mode=make-playlist ;;
-  --playlist-format=*) cfg_playlist_format=$(echo $var | cut -d '=' -f 2) ;;
-
   --count=*) cfg_search_count=$(echo $var | cut -d '=' -f 2) ;;
   --save-to=*) cfg_save_to=$(echo $var | cut -d '=' -f 2) ;;
   --write-tags) cfg_write_tags=1 ;;
   --silent) cfg_silent_mode=1 && cfg_wget="$cfg_silent_wget";;
-
   --*) Info "Ошибка разбора аргументов: Неизвестный параметр $var" die ;;
-
   *) [ -z "$query" ] && query="${var}" || query="${query} ${var}"  ;;
  esac
 done
