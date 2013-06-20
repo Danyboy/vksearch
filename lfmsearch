@@ -1,0 +1,111 @@
+#!/bin/bash
+
+#################################################################
+########### LastFM Saerch script (c) snoopcatt, 2010-2013 ############
+########### Licensed under GNU GPL v2. ##########################
+#################################################################
+
+######################################################
+sys_vksearch='vksearch'
+sys_version='0.1a'
+sys_temp='/tmp'
+
+cfg_save_to='.'
+######################################################
+
+Info() {
+ echo "[$(date +%k:%M:%S)] $1" > /dev/stderr
+ [ "$2" == "die" ] && exit 1
+}
+
+ShowHelp() {
+ echo  "LastFM Search $sys_version: Загрузка альбомов и дискографий."
+ echo "Для работы скрипта не требуется авторизация. by snoopcatt, © 2010-2013. Лицензировано под GNU GPL v2."
+ echo -e "* Использование: lfmsearch [опции] запрос"
+ echo -e "\t--help: показать это сообщение и закрыть lfmsearch\n"
+ echo -e "\t--get-album: скачиваем альбом"
+ echo -e "\t--get-discography: скачиваем дискографию"
+ echo -e "\t--save-to=PATH: сохранять треки в указанный PATH"
+
+ exit 0
+}
+
+GetParams() {
+for var in $@ 
+do
+ case $var in
+  --help) ShowHelp;;
+  --get-album) sys_method='get-album' ;;
+  --get-discography) sys_method='get-discography' ;;
+  --save-to=*) cfg_save_to=$(echo $var | cut -d '=' -f 2) ;;
+  --*) Info "Ошибка разбора аргументов: Неизвестный параметр $var" die ;;
+  *) [ -z "$query" ] && query="${var}" || query="${query} ${var}"  ;;
+ esac
+done
+[ -z "$sys_method" ] && ShowHelp
+[ -z "$query" ] && ShowHelp
+}
+
+GetAlbum() {
+ cd "$cfg_save_to"
+ rm ${sys_temp}/lastfm_tracks 2>/dev/null
+ artist="$(echo $query | cut -d '-' -f 1|sed 's/[ \t]$//')"
+ album="$(echo $query | cut -d '-' -f 2|sed 's/^[ \t]*//')"
+ echo "Saving $artist - $album"
+ [ -d "$album" ] || mkdir "$album" 
+ cd "$album"
+ [ -d lyrics ] || mkdir lyrics 
+ wget "http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=efe0e53182441c48f5b11f3565306e30&artist=$artist&album=$album" -qO ${sys_temp}/lastfm_request
+ album_art="$( grep -oE 'http://.*(png|jpg)' ${sys_temp}/lastfm_request|tail -n1 )";
+ year="$(grep release ${sys_temp}/lastfm_request|awk '{ print $4 }'|sed 's/,//')"
+ echo "Saving album art..."
+ [ -n "$album_art" ] && wget -qO cover.`basename $album_art|awk -F . '{print $NF}'` $album_art
+ grep -n '<duration>' ${sys_temp}/lastfm_request|while read line; do 
+  ln="$(( ` echo $line | awk '{ print $1 }'|sed 's/://g' ` - 1 ))";
+  sed -n ${ln}p ${sys_temp}/lastfm_request|sed -n 's|<name>\(.*\)</name>|\1|p'|sed 's/^[ \t]*//' >> ${sys_temp}/lastfm_tracks
+ done  
+ count=`cat ${sys_temp}/lastfm_tracks | wc -l`
+ current=1
+
+ OLD_IFS="$IFS"
+ IFS=$'\n'
+
+ for track in $(cat ${sys_temp}/lastfm_tracks) ; do
+  echo -n "[$current/$count] Saving $track.. "
+  saved="$($sys_vksearch --silent --get-one $artist - $track)"
+  real="$artist - $track"
+  mv "$saved" "$real.mp3" 2>/dev/null
+  echo -n "Writing tags.. "
+  id3 -D "$real.mp3" >/dev/null 2>&1
+  id3 -2 -a "$artist" -A "$album" -t "$track" -y $year -T $current/$count "$real.mp3" >/dev/null 2>&1
+  echo "Saving lyrics.."
+  saved_lyrics="$($sys_vksearch --silent --get-lyrics $artist - $track)"
+  mv "$saved_lyrics" "lyrics/$real.txt"
+  let current++;
+ done
+
+ IFS="$OLD_IFS"
+}
+
+GetDiscography() {
+  cd "$cfg_save_to"
+  rm ${sys_temp}/lastfm_albums 2>/dev/null
+  artist=$query
+  [ -d "$artist" ] || mkdir "$artist"
+  cd "$artist"
+  wget "http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=$query&api_key=efe0e53182441c48f5b11f3565306e30" -qO ${sys_temp}/lastfm_request
+  OLD_IFS="$IFS"
+  IFS=$'\n'
+  for album in $(cat ${sys_temp}/lastfm_request|grep name|grep -vEi ">$query<"|grep -oE '>.*<'|sed 's/<$//;s/^>//;') ; do
+    $0 --save-to=. --get-album "$artist" - "$album" 
+    cd "$cfg_save_to"
+  done
+}
+
+GetParams $*;
+case $sys_method in
+  get-album)
+    GetAlbum;;
+  get-discography)
+    GetDiscography;;
+esac
