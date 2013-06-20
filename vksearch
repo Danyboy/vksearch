@@ -1,27 +1,24 @@
 #!/bin/bash
 
 #################################################################
-########### VKSearch script (c) snoopcatt, 2010-2012 ############
+########### VKSearch script (c) snoopcatt, 2010-2013 ############
 ########### Licensed under GNU GPL v2. ##########################
 #################################################################
 
 ######################################################
-sys_version="0.5a"
+sys_version="0.6b"
 sys_temp='/tmp' 
 sys_method='audio.search'
 
-vkapi_secret='dTckAoaSzH' 
-vkapi_appid='1696393'
-vkapi_id="5807425" 
+vkapi_token='3a582f82cd975ace6015cd56e3e6eb3fff57961dccec60850a6272915f547132d616ae4ea0330a19725b9'  # для получения нового токена пройдите по ссылке: https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
 
 cfg_save_to="."
 cfg_new_playlist='1'
-cfg_playlist_format='pls'
 cfg_write_tags='0'
-cfg_search_count='200'
-cfg_mplayer='xdg-open'
-cfg_wget="/usr/bin/curl -#"
-cfg_silent_wget='/usr/bin/curl -# --silent'
+cfg_search_count='300'
+cfg_mplayer='mplayer -playlist'
+cfg_wget="wget -qO - "
+cfg_silent_wget='wget -qO - '
 cfg_mode='play'
 cfg_silent_mode='0'
 cfg_single_get='0'
@@ -38,7 +35,6 @@ ShowHelp() {
  echo -e "* Использование: vksearch [опции] запрос"
  echo -e "\t--help: показать это сообщение и закрыть vksearch\n"
  echo -e "\t--user-playlist: использовать плейлист пользователя по ID"
- echo -e "\t--playlist-format: указать нужный формат плейлиста (m3u, pls, xpsf)"
  echo -e "\t--search: использовать поиск по всей коллекции ВК\n"
  echo -e "\t--play: проиграть найденный список треков"
  echo -e "\t--get: скачать найденный список треков"
@@ -49,8 +45,6 @@ ShowHelp() {
  echo -e "\t--save-to=PATH: сохранять плейлист и треки в указанный PATH"
  echo -e "\t--write-tags: записывать id3 теги в скачанные треки"
  echo -e "\t--get-lyrics: скачать текст песни"
- echo -e "\t--get-album: скачать альбом"
- echo -e "\t--get-discography: скачать дискографию"
  echo -e "\t--silent: тихий режим"
 
  exit 0
@@ -89,10 +83,8 @@ done
 }
 
 GetIdByLink() { 
-    query=$1
-    vkapi_signature=$(echo -n "${vkapi_id}api_id=${vkapi_appid}method=users.gettest_mode=1uids=${query}v=2.0${vkapi_secret}"|md5sum|awk '{print $1}')
-    id=$(wget "http://api.vkontakte.ru/api.php?api_id=${vkapi_appid}&method=users.get&uids=${query}&test_mode=1&v=2.0&sig=${vkapi_signature}" -qO - |grep \<uid\>|sed -n 's|<uid>\(.*\)</uid>|\1|p'|sed 's/^[ \t]*//')
-    echo $id
+  query="$1"
+  wget --no-check-certificate "https://api.vk.com/method/users.get.xml?uids=$query&fields=uid" -qO -  |sed -n 's|<uid>\(.*\)</uid>|\1|p'|sed 's/^[ \t]*//'
 }
 
 Request() { 
@@ -101,17 +93,14 @@ Request() {
  case $sys_method in
   "audio.get")
     echo "$query" | grep -qE '[a-zA-Zа-яА-Я]' && query=$(GetIdByLink $query)
-    vkapi_signature=$(echo -n "${vkapi_id}api_id=${vkapi_appid}method=audio.gettest_mode=1uid=${query}v=2.0${vkapi_secret}"|md5sum|awk '{print $1}')
-    wget "http://api.vkontakte.ru/api.php?api_id=${vkapi_appid}&method=audio.get&uid=${query}&test_mode=1&v=2.0&sig=${vkapi_signature}" -qO ${sys_temp}/vksearch.out
+    wget --no-check-certificate "https://api.vk.com/method/audio.get.xml?oid=$query&fields=uid&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) ;;
   "audio.search")
-    vkapi_signature=$(echo -n "${vkapi_id}api_id=1696393count=${cfg_search_count}lyrics=${cfg_request_lyrics}method=audio.searchq=${query}test_mode=1v=2.0${vkapi_secret}"|md5sum|awk '{print $1}')
-    wget "http://api.vkontakte.ru/api.php?api_id=1696393&count=${cfg_search_count}&v=2.0&lyrics=${cfg_request_lyrics}&method=audio.search&sig=${vkapi_signature}&test_mode=1&q=$query" -qO ${sys_temp}/vksearch.out
+    wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
     found=$(cat ${sys_temp}/vksearch.out | sed -ne 's,<count>\([^<]*\)</count>,\1,p'|sed 's/^[ \t]*//') ;;
   "audio.getLyrics")
     query="$(cat ${sys_temp}/vksearch.out | sed -n 's|<lyrics_id>\(.*\)</lyrics_id>|\1|p'|sed 's/^[ \t]*//')"
-    vkapi_signature=$(echo -n "${vkapi_id}api_id=${vkapi_appid}lyrics_id=${query}method=audio.getLyricstest_mode=1v=2.0${vkapi_secret}"|md5sum|awk '{print $1}')
-    wget "http://api.vkontakte.ru/api.php?api_id=${vkapi_appid}&method=audio.getLyrics&lyrics_id=${query}&test_mode=1&v=2.0&sig=${vkapi_signature}" -qO ${sys_temp}/vksearch.lyrics
+    wget --no-check-certificate "https://api.vk.com/method/audio.getLyrics.xml?lyrics_id=${query}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.lyrics" 
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) 
  esac
 
@@ -135,32 +124,15 @@ Parse() {
 }
 
 MakePlaylist() {
- [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.$cfg_playlist_format 2>&-
- case $cfg_playlist_format in
-  m3u)
-    [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] || echo "#EXTM3U" > "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
-    for i in `seq 0 $song_counts` 
-    do
-     echo -e "#EXTINF:${song_durations[$i]},${song_artists[$i]} - ${song_titles[$i]}\n${song_urls[$i]}\n" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
-    done ;;
-  pls)
-    [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] || echo "[playlist]" > "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
-    current_number=0
-    for i in `seq 0 $song_counts`
-    do
-     current_number=$(($i+1))
-     echo -e "File${current_number}=${song_urls[$i]}\nTitle${current_number}=${song_artists[$i]} - ${song_titles[$i]}\nLength${current_number}=${song_durations[$i]}" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
-    done
-    echo -e "NumberOfEntries=${current_number}\nVersion=2" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ;;
-  xpsf)
-    [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] || echo -e '<?xml version="1.0" encoding="UTF-8"?>\n<playlist version="1" xmlns="http://xspf.org/ns/0/">\n<trackList>' > "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
-    for i in `seq 0 $song_counts`
-    do
-     echo -e "<track>\n<title>${song_artists[$i]} - ${song_titles[$i]}</title>\n<location>${song_urls[$i]}</location>\n</track>" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format"
-    done
-    echo -e "</trackList>\n</playlist>" >> "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ;;
- esac
- [ -f "$cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" ] && Info "Плейлист сохранен как $cfg_save_to/VKontakte_PlayList.$cfg_playlist_format" 
+ [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.pls 2>&-
+ [ -f "$cfg_save_to/VKontakte_PlayList.pls" ] || echo "[playlist]" > "$cfg_save_to/VKontakte_PlayList.pls"
+ current_number=0
+ for i in `seq 0 $song_counts` ; do
+   current_number=$(($i+1))
+   echo -e "File${current_number}=${song_urls[$i]}\nTitle${current_number}=${song_artists[$i]} - ${song_titles[$i]}\nLength${current_number}=${song_durations[$i]}" >> "$cfg_save_to/VKontakte_PlayList.pls"
+ done
+ echo -e "NumberOfEntries=${current_number}\nVersion=2" >> "$cfg_save_to/VKontakte_PlayList.pls" ;
+ [ -f "$cfg_save_to/VKontakte_PlayList.pls" ] && Info "Плейлист сохранен как $cfg_save_to/VKontakte_PlayList.pls" 
 }
 
 GetFiles() {
@@ -182,62 +154,6 @@ GetLyrics() {
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.txt" 
 }
 
-GetAlbum() {
- cd "$cfg_save_to"
- rm ${sys_temp}/lastfm_tracks 2>/dev/null
- artist="$(echo $query | cut -d '-' -f 1|sed 's/[ \t]$//')"
- album="$(echo $query | cut -d '-' -f 2|sed 's/^[ \t]*//')"
- echo "Saving $artist - $album"
- [ -d "$album" ] || mkdir "$album" 
- cd "$album"
- [ -d lyrics ] || mkdir lyrics 
- wget "http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=efe0e53182441c48f5b11f3565306e30&artist=$artist&album=$album" -qO ${sys_temp}/lastfm_request
- album_art="$( grep -oE 'http://.*(png|jpg)' ${sys_temp}/lastfm_request|tail -n1 )";
- year="$(grep release ${sys_temp}/lastfm_request|awk '{ print $4 }'|sed 's/,//')"
- echo "Saving album art..."
- [ -n "$album_art" ] && wget -qO cover.`basename $album_art|awk -F . '{print $NF}'` $album_art
- grep -n '<duration>' ${sys_temp}/lastfm_request|while read line; do 
-  ln="$(( ` echo $line | awk '{ print $1 }'|sed 's/://g' ` - 1 ))";
-  sed -n ${ln}p ${sys_temp}/lastfm_request|sed -n 's|<name>\(.*\)</name>|\1|p'|sed 's/^[ \t]*//' >> ${sys_temp}/lastfm_tracks
- done  
- count=`cat ${sys_temp}/lastfm_tracks | wc -l`
- current=1
-
- OLD_IFS="$IFS"
- IFS=$'\n'
-
- for track in $(cat ${sys_temp}/lastfm_tracks) ; do
-  echo -n "[$current/$count] Saving $track.. "
-  saved="$($0 --silent --get-one $artist - $track)"
-  real="$artist - $track"
-  mv "$saved" "$real.mp3" 2>/dev/null
-  echo -n "Writing tags.. "
-  id3 -D "$real.mp3" >/dev/null 2>&1
-  id3 -2 -a "$artist" -A "$album" -t "$track" -y $year -T $current/$count "$real.mp3" >/dev/null 2>&1
-  echo "Saving lyrics.."
-  saved_lyrics="$($0 --silent --get-lyrics $artist - $track)"
-  mv "$saved_lyrics" "lyrics/$real.txt"
-  let current++;
- done
-
- IFS="$OLD_IFS"
-}
-
-GetDiscography() {
-  cd "$cfg_save_to"
-  rm ${sys_temp}/lastfm_albums 2>/dev/null
-  artist=$query
-  [ -d "$artist" ] || mkdir "$artist"
-  cd "$artist"
-  wget "http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=$query&api_key=efe0e53182441c48f5b11f3565306e30" -qO ${sys_temp}/lastfm_request
-  OLD_IFS="$IFS"
-  IFS=$'\n'
-  for album in $(cat ${sys_temp}/lastfm_request|grep name|grep -vEi ">$query<"|grep -oE '>.*<'|sed 's/<$//;s/^>//;') ; do
-    $0 --save-to=. --get-album "$artist" - "$album" 
-    cd "$cfg_save_to"
-  done
-}
-
 mkdir -p ${sys_temp}
 GetParams $*
 Request
@@ -246,7 +162,7 @@ Parse
 case $cfg_mode in
  play)
     MakePlaylist
-    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.${cfg_playlist_format}" ;;
+    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.pls" ;;
  get)
     GetFiles ;; 
  make-playlist)
@@ -255,8 +171,4 @@ case $cfg_mode in
     sys_method="audio.getLyrics"
     Request
     GetLyrics ;;
- get-album)
-    GetAlbum;;
- get-discography)
-    GetDiscography;;
 esac
