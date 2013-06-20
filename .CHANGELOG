@@ -1,0 +1,4 @@
+0.6b: 
+ [*] Using VKApi 3.99, now it seems to work.
+ [-] Removed playlist format config, pls is now default.
+ [-] Removed getting albums/discography, it will be separate script.
