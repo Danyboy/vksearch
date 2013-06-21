@@ -29,7 +29,7 @@ cfg_single_get='0'
 Info() {
  [ "$cfg_color_output" -eq 1 ] && message_text="$(echo $1|sed 's/COLOR_WHITE/\\e[1;37m/g;s/COLOR_RED/\\e[1;31m/g;s/COLOR_PURPLE/\\e[1;35m/g;s/COLOR_GREEN/\\e[1;32m/g;s/COLOR_YELLOW/\\e[1;33m/g')" ||  message_text="$(echo $1|sed 's/COLOR_WHITE//g;s/COLOR_RED//g;s/COLOR_PURPLE//g;s/COLOR_GREEN//g;s/COLOR_YELLOW//g')"
  [ "$cfg_color_output" -eq 1 ] && date_color="\e[1;36m" && color_reset="\e[00m"
- [ "$cfg_silent_mode" -ne 1 ] && echo -e "$date_color[$(date +%k:%M:%S)] $message_text $color_reset" > $sys_output
+ [ "$cfg_silent_mode" -ne 1 ] && echo -e "$date_color[$(date +%k:%M:%S)] ${color_reset}${message_text}${color_reset}" > $sys_output
  [ "$2" == "die" ] && exit 1
 }
 
