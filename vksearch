@@ -128,6 +128,7 @@ Parse() {
 }
 
 MakePlaylist() {
+ cd "$cfg_save_to"
  [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.m3u 2>&-
  [ -f "$cfg_save_to/VKontakte_PlayList.m3u" ] || echo "#EXTM3U" > "$cfg_save_to/VKontakte_PlayList.m3u"
  for i in `seq 0 $song_counts` 
@@ -138,6 +139,7 @@ MakePlaylist() {
 }
 
 GetFiles() {
+ cd "$cfg_save_to"
  for i in `seq 0 $song_counts` 
   do
    Info "COLOR_WHITEНачинаю закачку: COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}"
