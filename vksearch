@@ -39,6 +39,7 @@ ShowHelp() {
  echo -e "* Использование: vksearch [опции] запрос"
  echo -e "\t--help: показать это сообщение и закрыть vksearch\n"
  echo -e "\t--user-playlist: использовать плейлист пользователя по ID"
+ echo -e "\t--get-recommends: рекомендации пользователя по ID"
  echo -e "\t--search: использовать поиск по всей коллекции ВК\n"
  echo -e "\t--play: проиграть найденный список треков"
  echo -e "\t--get: скачать найденный список треков"
@@ -60,6 +61,7 @@ do
  case $var in
   --help) ShowHelp;;
   --user-playlist) sys_method='audio.get' ;;
+  --recommended) sys_method='audio.getRecommendations' ;;
   --search) sys_method='audio.search' ;;
   --play) cfg_mode=play ;;
   --get) cfg_mode=get ;;
@@ -97,7 +99,11 @@ Request() {
   "audio.getLyrics")
     query="$(cat ${sys_temp}/vksearch.out | sed -n 's|<lyrics_id>\(.*\)</lyrics_id>|\1|p'|sed 's/^[ \t]*//')"
     wget --no-check-certificate "https://api.vk.com/method/audio.getLyrics.xml?lyrics_id=${query}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.lyrics" 
-    found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) 
+    found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l)  ;;
+  "audio.getRecommendations")
+    echo "$query" | grep -qE '[a-zA-Zа-яА-Я]' && query=$(GetIdByLink $query)
+    wget --no-check-certificate "https://api.vk.com/method/audio.getRecommendations.xml?uid=$query&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
+    found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) ;; 
  esac
 
  error_msg="$(cat ${sys_temp}/vksearch.out | sed -n 's|<error_msg>\(.*\)</error_msg>|\1|p'|sed 's/^[ \t]*//' )"
