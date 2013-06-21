@@ -5,7 +5,7 @@
 ########### Licensed under GNU GPL v2. ##########################
 #################################################################
 #################################################################
-# для получения нового токена пройдите по ссылке: 
+# для получения нового токена пройдите по ссылке:  
 # https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
 sys_version="0.7b"
 sys_temp='/tmp' 
