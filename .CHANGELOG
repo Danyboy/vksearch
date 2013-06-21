@@ -1,3 +1,13 @@
+0.8-rc:
+ [+] Suggest function. Do you ready to enjoy NEW music?
+     Example: vksearch --suggest Within Temptation   --  and playlist with 
+      recommended music will be ready in a few minutes!
+     Or: vksearch --suggest --user-playlist <YOU_USER_ID> 
+ [+] Recommends function. Native suggestion function on VK.com. Works worse then   
+     "suggest".
+     Example: vksearch --get-recommends id12345678
+
+
 0.7b:
  [+] Colored output. Enabled by default, set cfg_color_output to 0 for disable.
 

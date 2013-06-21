@@ -7,7 +7,7 @@
 #################################################################
 # для получения нового токена пройдите по ссылке:  
 # https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
-sys_version="0.7b"
+sys_version="0.8-rc"
 sys_temp='/tmp' 
 sys_output='/dev/stderr'
 sys_method='audio.search'
@@ -39,7 +39,8 @@ ShowHelp() {
  echo -e "* Использование: vksearch [опции] запрос"
  echo -e "\t--help: показать это сообщение и закрыть vksearch\n"
  echo -e "\t--user-playlist: использовать плейлист пользователя по ID"
- echo -e "\t--get-recommends: рекомендации пользователя по ID"
+ echo -e "\t--get-recommends: рекомендации пользователя по ID (используется ВК)"
+ echo -e "\t--suggest: рекомендации пользователя по ID или запросу (используетcя LastFM)"
  echo -e "\t--search: использовать поиск по всей коллекции ВК\n"
  echo -e "\t--play: проиграть найденный список треков"
  echo -e "\t--get: скачать найденный список треков"
@@ -62,6 +63,7 @@ do
   --help) ShowHelp;;
   --user-playlist) sys_method='audio.get' ;;
   --recommended) sys_method='audio.getRecommendations' ;;
+  --suggest) cfg_mode=suggest && cfg_search_count='50' ;;
   --search) sys_method='audio.search' ;;
   --play) cfg_mode=play ;;
   --get) cfg_mode=get ;;
@@ -91,7 +93,7 @@ Request() {
  case $sys_method in
   "audio.get")
     echo "$query" | grep -qE '[a-zA-Zа-яА-Я]' && query=$(GetIdByLink $query)
-    wget --no-check-certificate "https://api.vk.com/method/audio.get.xml?oid=$query&fields=uid&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
+    wget --no-check-certificate "https://api.vk.com/method/audio.get.xml?oid=$query&fields=uid&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) ;;
   "audio.search")
     wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&lyrics=${cfg_request_lyrics}&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
@@ -126,15 +128,13 @@ Parse() {
 }
 
 MakePlaylist() {
- [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.pls 2>&-
- [ -f "$cfg_save_to/VKontakte_PlayList.pls" ] || echo "[playlist]" > "$cfg_save_to/VKontakte_PlayList.pls"
- current_number=0
- for i in `seq 0 $song_counts` ; do
-   current_number=$(($i+1))
-   echo -e "File${current_number}=${song_urls[$i]}\nTitle${current_number}=${song_artists[$i]} - ${song_titles[$i]}\nLength${current_number}=${song_durations[$i]}" >> "$cfg_save_to/VKontakte_PlayList.pls"
- done
- echo -e "NumberOfEntries=${current_number}\nVersion=2" >> "$cfg_save_to/VKontakte_PlayList.pls" ;
- [ -f "$cfg_save_to/VKontakte_PlayList.pls" ] && Info "COLOR_WHITEПлейлист сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.pls" 
+ [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.m3u 2>&-
+ [ -f "$cfg_save_to/VKontakte_PlayList.m3u" ] || echo "#EXTM3U" > "$cfg_save_to/VKontakte_PlayList.m3u"
+ for i in `seq 0 $song_counts` 
+  do
+    echo -e "#EXTINF:${song_durations[$i]},${song_artists[$i]} - ${song_titles[$i]}\n${song_urls[$i]}\n" >> "$cfg_save_to/VKontakte_PlayList.m3u"
+  done 
+ [ -f "$cfg_save_to/VKontakte_PlayList.m3u" ] && Info "COLOR_WHITEПлейлист сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u" 
 }
 
 GetFiles() {
@@ -154,6 +154,18 @@ GetLyrics() {
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.txt" 
 }
 
+GetSuggestions() {
+  Info "COLOR_WHITEПолучение информации о рекомендуемых исполнителях..."
+  rm ${sys_temp}/vk.similar.out 2>/dev/null
+  for i in `seq 0 $song_counts` ; do
+    echo -n "."
+    query=${song_artists[$i]}
+    wget -qO - "http://ws.audioscrobbler.com/2.0/artist/$query/similar.txt" | awk -F "," '{print $3}' >> ${sys_temp}/vk.similar.out
+  done
+  echo
+  /bin/sort ${sys_temp}/vk.similar.out | uniq | /bin/sort -R | head -n $cfg_search_count > ${sys_temp}/vk.similar
+}
+
 cd "$cfg_save_to"
 mkdir -p ${sys_temp}
 GetParams $*
@@ -163,7 +175,7 @@ Parse
 case $cfg_mode in
  play)
     MakePlaylist
-    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.pls" ;;
+    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.m3u" ;;
  get)
     GetFiles ;; 
  make-playlist)
@@ -172,4 +184,21 @@ case $cfg_mode in
     sys_method="audio.getLyrics"
     Request
     GetLyrics ;;
+  suggest)
+    GetSuggestions
+    rm "$cfg_save_to/VKontakte_PlayList.m3u" 2>/dev/null
+    Info "COLOR_WHITEСоздаю плейлист на основе рекомендуемых исполнителей..."
+    cat ${sys_temp}/vk.similar | while read line ; do
+      echo -n .
+      sys_method="audio.search"
+      cfg_silent_mode='1'
+      cfg_new_playlist='0'
+      cfg_search_count='1';
+      query="$line"
+      Request
+      Parse
+      MakePlaylist
+    done
+    echo
+    Info "COLOR_WHITEПлейлист с рекомендациями сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u"  ;;
 esac
