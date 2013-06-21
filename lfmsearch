@@ -7,14 +7,18 @@
 
 ######################################################
 sys_vksearch='vksearch'
-sys_version='0.1a'
+sys_method='get-album'
+sys_version='0.7b'
 sys_temp='/tmp'
 
+cfg_color_output=1
 cfg_save_to='.'
 ######################################################
 
 Info() {
- echo "[$(date +%k:%M:%S)] $1" > /dev/stderr
+ [ "$cfg_color_output" -eq 1 ] && message_text="$(echo $1|sed 's/COLOR_WHITE/\\e[1;37m/g;s/COLOR_RED/\\e[1;31m/g;s/COLOR_PURPLE/\\e[1;35m/g;s/COLOR_GREEN/\\e[1;32m/g;s/COLOR_YELLOW/\\e[1;33m/g')" ||  message_text="$(echo $1|sed 's/COLOR_WHITE//g;s/COLOR_RED//g;s/COLOR_PURPLE//g;s/COLOR_GREEN//g;s/COLOR_YELLOW//g')"
+ [ "$cfg_color_output" -eq 1 ] && date_color="\e[1;36m"
+ echo -e "$date_color[$(date +%k:%M:%S)] $message_text"
  [ "$2" == "die" ] && exit 1
 }
 
@@ -51,14 +55,14 @@ GetAlbum() {
  rm ${sys_temp}/lastfm_tracks 2>/dev/null
  artist="$(echo $query | cut -d '-' -f 1|sed 's/[ \t]$//')"
  album="$(echo $query | cut -d '-' -f 2|sed 's/^[ \t]*//')"
- echo "Saving $artist - $album"
+ Info "COLOR_WHITEСохранение: COLOR_PURPLE$artist - $album"
  [ -d "$album" ] || mkdir "$album" 
  cd "$album"
  [ -d lyrics ] || mkdir lyrics 
  wget "http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=efe0e53182441c48f5b11f3565306e30&artist=$artist&album=$album" -qO ${sys_temp}/lastfm_request
  album_art="$( grep -oE 'http://.*(png|jpg)' ${sys_temp}/lastfm_request|tail -n1 )";
  year="$(grep release ${sys_temp}/lastfm_request|awk '{ print $4 }'|sed 's/,//')"
- echo "Saving album art..."
+ Info "COLOR_WHITEЗагрузка обложки альбома..."
  [ -n "$album_art" ] && wget -qO cover.`basename $album_art|awk -F . '{print $NF}'` $album_art
  grep -n '<duration>' ${sys_temp}/lastfm_request|while read line; do 
   ln="$(( ` echo $line | awk '{ print $1 }'|sed 's/://g' ` - 1 ))";
@@ -70,17 +74,16 @@ GetAlbum() {
  OLD_IFS="$IFS"
  IFS=$'\n'
 
+ Info "COLOR_WHITEЗагрузка песен начата."
  for track in $(cat ${sys_temp}/lastfm_tracks) ; do
-  echo -n "[$current/$count] Saving $track.. "
   saved="$($sys_vksearch --silent --get-one $artist - $track)"
   real="$artist - $track"
   mv "$saved" "$real.mp3" 2>/dev/null
-  echo -n "Writing tags.. "
   id3 -D "$real.mp3" >/dev/null 2>&1
   id3 -2 -a "$artist" -A "$album" -t "$track" -y $year -T $current/$count "$real.mp3" >/dev/null 2>&1
-  echo "Saving lyrics.."
   saved_lyrics="$($sys_vksearch --silent --get-lyrics $artist - $track)"
   mv "$saved_lyrics" "lyrics/$real.txt"
+  Info "COLOR_GREEN[$current/$count] COLOR_WHITEТрек COLOR_PURPLE${artist} - ${track}COLOR_WHITE загружен."
   let current++;
  done
 
