@@ -4,12 +4,15 @@
 ########### VKSearch script (c) snoopcatt, 2010-2013 ############
 ########### Licensed under GNU GPL v2. ##########################
 #################################################################
-
-######################################################
-sys_version="0.6b"
+#################################################################
+# для получения нового токена пройдите по ссылке: 
+# https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
+sys_version="0.7b"
 sys_temp='/tmp' 
+sys_output='/dev/stderr'
 sys_method='audio.search'
-vkapi_token='3a582f82cd975ace6015cd56e3e6eb3fff57961dccec60850a6272915f547132d616ae4ea0330a19725b9'  # для получения нового токена пройдите по ссылке: https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
+vkapi_token='3a582f82cd975ace6015cd56e3e6eb3fff57961dccec60850a6272915f547132d616ae4ea0330a19725b9' 
+cfg_color_output='1'
 cfg_save_to="."
 cfg_new_playlist='1'
 cfg_write_tags='0'
@@ -18,13 +21,15 @@ cfg_request_lyrics='0'
 cfg_mplayer='mplayer -playlist'
 cfg_wget="wget -qO - "
 cfg_silent_wget='wget -qO - '
-cfg_mode='play'
+cfg_mode='make-playlist'
 cfg_silent_mode='0'
 cfg_single_get='0'
-######################################################
+#################################################################
 
 Info() {
- [ "$cfg_silent_mode" -ne 1 ] && echo "[$(date +%k:%M:%S)] $1" > /dev/stderr
+ [ "$cfg_color_output" -eq 1 ] && message_text="$(echo $1|sed 's/COLOR_WHITE/\\e[1;37m/g;s/COLOR_RED/\\e[1;31m/g;s/COLOR_PURPLE/\\e[1;35m/g;s/COLOR_GREEN/\\e[1;32m/g;s/COLOR_YELLOW/\\e[1;33m/g')" ||  message_text="$(echo $1|sed 's/COLOR_WHITE//g;s/COLOR_RED//g;s/COLOR_PURPLE//g;s/COLOR_GREEN//g;s/COLOR_YELLOW//g')"
+ [ "$cfg_color_output" -eq 1 ] && date_color="\e[1;36m"
+ [ "$cfg_silent_mode" -ne 1 ] && echo -e "$date_color[$(date +%k:%M:%S)] $message_text"
  [ "$2" == "die" ] && exit 1
 }
 
@@ -65,8 +70,8 @@ do
   --count=*) cfg_search_count=$(echo $var | cut -d '=' -f 2) ;;
   --save-to=*) cfg_save_to=$(echo $var | cut -d '=' -f 2) ;;
   --write-tags) cfg_write_tags=1 ;;
-  --silent) cfg_silent_mode=1 && cfg_wget="$cfg_silent_wget";;
-  --*) Info "Ошибка разбора аргументов: Неизвестный параметр $var" die ;;
+  --silent) cfg_silent_mode=1 && cfg_wget="$cfg_silent_wget" ;;
+  --*) Info "COLOR_REDОшибка разбора аргументов: Неизвестный параметр COLOR_YELLOW$var" die ;;
   *) [ -z "$query" ] && query="${var}" || query="${query} ${var}"  ;;
  esac
 done
@@ -79,8 +84,8 @@ GetIdByLink() {
 }
 
 Request() { 
- Info "Добро пожаловать в VKSearch $sys_version!"
- Info "Загрузка списка треков..."
+ Info "COLOR_WHITEДобро пожаловать в VKSearch $sys_version!"
+ Info "COLOR_WHITEЗагрузка списка треков..."
  case $sys_method in
   "audio.get")
     echo "$query" | grep -qE '[a-zA-Zа-яА-Я]' && query=$(GetIdByLink $query)
@@ -97,10 +102,10 @@ Request() {
 
  error_msg="$(cat ${sys_temp}/vksearch.out | sed -n 's|<error_msg>\(.*\)</error_msg>|\1|p'|sed 's/^[ \t]*//' )"
  error_code="$(cat ${sys_temp}/vksearch.out | sed -n 's|<error_code>\(.*\)</error_code>|\1|p'|sed 's/^[ \t]*//')"
- [ -n "$error_msg" ] && Info "Ошибка: $error_msg (Код $error_code)" die
+ [ -n "$error_msg" ] && Info "COLOR_REDОшибка: $error_msg (Код COLOR_YELLOW$error_codeCOLOR_RED)" die
  
  song_count=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l )
- [ $song_count -eq 0 ] && Info "По запросу ${query} не найдено ни одного трека..." die || Info "По запросу ${query} найдено ${found} композиций. Обработка первых ${song_count}."
+ [ $song_count -eq 0 ] && Info "COLOR_REDПо запросу COLOR_PURPLE${query}COLOR_RED не найдено ни одного трека..." die || Info "COLOR_WHITEПо запросу COLOR_PURPLE${query}COLOR_WHITE найдено COLOR_GREEN${found}COLOR_WHITE композиций. Обработка первых COLOR_GREEN${song_count}COLOR_WHITE."
 }
 
 Parse() { 
@@ -123,28 +128,27 @@ MakePlaylist() {
    echo -e "File${current_number}=${song_urls[$i]}\nTitle${current_number}=${song_artists[$i]} - ${song_titles[$i]}\nLength${current_number}=${song_durations[$i]}" >> "$cfg_save_to/VKontakte_PlayList.pls"
  done
  echo -e "NumberOfEntries=${current_number}\nVersion=2" >> "$cfg_save_to/VKontakte_PlayList.pls" ;
- [ -f "$cfg_save_to/VKontakte_PlayList.pls" ] && Info "Плейлист сохранен как $cfg_save_to/VKontakte_PlayList.pls" 
+ [ -f "$cfg_save_to/VKontakte_PlayList.pls" ] && Info "COLOR_WHITEПлейлист сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.pls" 
 }
 
 GetFiles() {
- cd "$cfg_save_to"
  for i in `seq 0 $song_counts` 
   do
-   Info "Начинаю закачку: ${song_artists[$i]} - ${song_titles[$i]}"
+   Info "COLOR_WHITEНачинаю закачку: COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}"
    $cfg_wget "${song_urls[$i]}" > "${song_artists[$i]} - ${song_titles[$i]}.mp3" 
-   Info "Файл ${song_artists[$i]} - ${song_titles[$i]} был загружен!"
+   Info "COLOR_WHITEФайл COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}COLOR_WHITE был загружен!"
    [ "$cfg_write_tags" -eq 1 ]  &&  id3 -2 -a "${song_artists[$i]}" -t "${song_titles[$i]}" "${song_artists[$i]} - ${song_titles[$i]}.mp3"
   done
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.mp3" 
 }
 
 GetLyrics() {
- cd "$cfg_save_to"
  cat ${sys_temp}/vksearch.lyrics|sed 's/<.*>//g;s/&quot;/"/g;/^[[:space:]]*$/d' > "${song_artists[0]} - ${song_titles[0]}.txt"
- Info "Текст песни ${song_artists[0]} - ${song_titles[0]} сохранён!"
+ Info "COLOR_WHITEТекст песни COLOR_PURPLE${song_artists[0]} - ${song_titles[0]}COLOR_WHITE сохранён!"
  [ "$cfg_silent_mode" -eq 1 ] && echo "${song_artists[$i]} - ${song_titles[$i]}.txt" 
 }
 
+cd "$cfg_save_to"
 mkdir -p ${sys_temp}
 GetParams $*
 Request
