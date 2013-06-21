@@ -19,7 +19,6 @@ cfg_write_tags='0'
 cfg_search_count='300'
 cfg_request_lyrics='0'
 cfg_mplayer='mplayer -playlist'
-cfg_wget="wget -qO - "
 cfg_silent_wget='wget -qO - '
 cfg_mode='make-playlist'
 cfg_silent_mode='0'
@@ -147,7 +146,8 @@ GetFiles() {
  for i in `seq 0 $song_counts` 
   do
    Info "COLOR_WHITEНачинаю закачку: COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}"
-   $cfg_wget "${song_urls[$i]}" > "${song_artists[$i]} - ${song_titles[$i]}.mp3" 
+   real_file="$( echo ${song_artists[$i]} - ${song_titles[$i]}.mp3 | sed 's/\//-/g;s/\\/-/g' )"
+   wget "${song_urls[$i]}" -qO "$real_file"
    Info "COLOR_WHITEФайл COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}COLOR_WHITE был загружен!"
    [ "$cfg_write_tags" -eq 1 ]  &&  id3 -2 -a "${song_artists[$i]}" -t "${song_titles[$i]}" "${song_artists[$i]} - ${song_titles[$i]}.mp3"
   done
@@ -190,7 +190,7 @@ case $cfg_mode in
     sys_method="audio.getLyrics"
     Request
     GetLyrics ;;
-  suggest)
+ suggest)
     GetSuggestions
     rm "$cfg_save_to/VKontakte_PlayList.m3u" 2>/dev/null
     Info "COLOR_WHITEСоздаю плейлист на основе рекомендуемых исполнителей..."
