@@ -203,8 +203,7 @@ case $cfg_mode in
     GetSuggestions
     rm "$cfg_save_to/VKontakte_PlayList.m3u" 2>/dev/null
     Info "COLOR_WHITEНачинаю обработку рекомендуемых исполнителей..."
-    cat ${sys_temp}/vksearch.similar | while read line ; do
-      query="$line" 
+    cat ${sys_temp}/vksearch.similar | while read query ; do
       sys_method="audio.search" && cfg_silent_mode='1' && cfg_new_playlist='0' && cfg_search_count="$cfg_suggest_tracks";
       Request
       Parse
