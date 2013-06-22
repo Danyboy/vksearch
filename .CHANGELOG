@@ -1,3 +1,8 @@
+1.1:
+ [+] Some improves to suggest mode. Support for --play --suggest or --get 
+     --suggest
+ [+] Added --suggest-count option. See --help.
+
 1.0:
  [*] First release.
  [*] Fixed downloading too long files in OS Windows. Downloaded files is now 

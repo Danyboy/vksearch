@@ -7,7 +7,7 @@
 #################################################################
 # для получения нового токена пройдите по ссылке:  
 # https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
-sys_version="1.0"
+sys_version="1.1"
 sys_temp='/tmp' 
 sys_output='/dev/stderr'
 sys_method='audio.search'
@@ -40,6 +40,7 @@ ShowHelp() {
  echo -e "\t--user-playlist: использовать плейлист пользователя(ей) по ID"
  echo -e "\t--get-recommends: рекомендации пользователя по ID (используется ВК)"
  echo -e "\t--suggest: рекомендации пользователя по ID или запросу (используетcя LastFM)"
+ echo -e "\t--suggest-count=N для каждой рекомендованной группы ищем N песен"
  echo -e "\t--search: использовать поиск по всей коллекции ВК\n"
  echo -e "\t--play: проиграть найденный список треков"
  echo -e "\t--get: скачать найденный список треков"
@@ -62,7 +63,8 @@ do
   --help) ShowHelp;;
   --user-playlist) sys_method='audio.get' && cfg_search_count='0'  ;;
   --recommended) sys_method='audio.getRecommendations' ;;
-  --suggest) cfg_mode=suggest && cfg_search_count='50' ;;
+  --suggest) suggest_mode="$cfg_mode" && cfg_mode="suggest" && cfg_search_count='50'  ;;
+  --suggest-count=*) cfg_suggest_tracks=$(echo $var | cut -d '=' -f 2) ;;
   --search) sys_method='audio.search';;
   --play) cfg_mode=play ;;
   --get) cfg_mode=get ;;
@@ -153,7 +155,7 @@ GetFiles() {
  for i in `seq 0 $song_counts` 
   do
    Info "COLOR_WHITEНачинаю закачку: COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}"
-   real_file="$( echo ${song_artists[$i]} - ${song_titles[$i]}.mp3 | sed 's/^[ \t]*//;s/\//_/g;s/\\/_/g;s/:/_/g;s/\*/_/g;s/\?/_/g;s/|/_/g;s/>/_/g;s/</_/g;s/"/_/g;s/&quot;/_/g' | sed s/\'/_/g )"
+   real_file="$( echo ${song_artists[$i]} - ${song_titles[$i]}.mp3 | sed 's/^[ \t]*//;s/&#39;//g;s/\//_/g;s/\\/_/g;s/:/_/g;s/\*/_/g;s/\?/_/g;s/|/_/g;s/>/_/g;s/</_/g;s/"/_/g;s/&quot;/_/g' | sed s/\'/_/g )"
    limitation="${real_file:0:70}"
    [ "${limitation##*.}" != "mp3" ] && real_file="${limitation}.mp3" || real_file="${limitation}"
    wget "${song_urls[$i]}" -cqO "$real_file"
@@ -177,7 +179,7 @@ GetSuggestions() {
     query=${song_artists[$i]}
     wget -qO - "http://ws.audioscrobbler.com/2.0/artist/$query/similar.txt" | awk -F "," '{print $3}' >> ${sys_temp}/vksearch.similar.out
   done
-  echo ;
+  echo;
   /bin/sort ${sys_temp}/vksearch.similar.out | uniq | /bin/sort -R | head -n $cfg_search_count > ${sys_temp}/vksearch.similar
 }
 
@@ -202,14 +204,16 @@ case $cfg_mode in
  suggest)
     GetSuggestions
     rm "$cfg_save_to/VKontakte_PlayList.m3u" 2>/dev/null
-    Info "COLOR_WHITEСоздаю плейлист на основе рекомендуемых исполнителей..."
+    Info "COLOR_WHITEНачинаю обработку рекомендуемых исполнителей..."
     cat ${sys_temp}/vksearch.similar | while read line ; do
-      echo -n .
+      query="$line" 
       sys_method="audio.search" && cfg_silent_mode='1' && cfg_new_playlist='0' && cfg_search_count="$cfg_suggest_tracks";
-      query="$line" && Request
+      [ "$suggest_mode" != "get" ] && echo -n .
+      Request
       Parse
-      MakePlaylist
-      echo ;
+      [ "$suggest_mode" == "get" ] &&  cfg_silent_mode='0' GetFiles || MakePlaylist
     done
-    Info "COLOR_WHITEПлейлист с рекомендациями сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u"  ;;
+    echo;
+    [ "$suggest_mode" != "get" ] && Info "COLOR_WHITEПлейлист с рекомендациями сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u"  || Info "COLOR_WHITEФайлы успешно загружены.";
+    [ "$suggest_mode" == "play" ] &&  ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.m3u" ;;
 esac
