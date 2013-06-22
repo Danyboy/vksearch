@@ -16,7 +16,7 @@ cfg_color_output='1'
 cfg_save_to="."
 cfg_new_playlist='1'
 cfg_write_tags='0'
-cfg_search_count='300'
+cfg_search_count='299'
 cfg_request_lyrics='0'
 cfg_mplayer='mplayer -playlist'
 cfg_mode='make-playlist'
@@ -86,20 +86,24 @@ GetIdByLink() {
 }
 
 Request() { 
- rm ${sys_temp}/vksearch.*
+ rm ${sys_temp}/vksearch.* 2>/dev/null
  Info "COLOR_WHITEДобро пожаловать в VKSearch $sys_version!"
  Info "COLOR_WHITEЗагрузка списка треков..."
  case $sys_method in
   "audio.get")
     for user in $query; do 
-       [ `echo "$user" | wc -c` -le 3 ] && continue
+       echo "$user" | grep -qE '[a-zA-Zа-яА-Я0-9]' || continue
        echo "$user" | grep -qE '[a-zA-Zа-яА-Я]' && query=$(GetIdByLink $user)
        wget --no-check-certificate "https://api.vk.com/method/audio.get.xml?oid=$query&fields=uid&count=${cfg_search_count}&access_token=$vkapi_token" -qO - >> "${sys_temp}/vksearch.out" 
     done
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) ;;
   "audio.search")
-    wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&lyrics=${cfg_request_lyrics}&count=${cfg_search_count}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.out" 
-    found=$(cat ${sys_temp}/vksearch.out | sed -ne 's,<count>\([^<]*\)</count>,\1,p'|sed 's/^[ \t]*//') ;;
+    current_offset=0
+    for offset in `seq 0 $(($cfg_search_count/300))` ; do
+      current_offset=$(($offset*300)) 
+      wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&lyrics=${cfg_request_lyrics}&count=${cfg_search_count}&offset=${current_offset}&access_token=$vkapi_token" -qO - >> "${sys_temp}/vksearch.out" 
+    done 
+    found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l)  ;;
   "audio.getLyrics")
     query="$(cat ${sys_temp}/vksearch.out | sed -n 's|<lyrics_id>\(.*\)</lyrics_id>|\1|p'|sed 's/^[ \t]*//')"
     wget --no-check-certificate "https://api.vk.com/method/audio.getLyrics.xml?lyrics_id=${query}&access_token=$vkapi_token" -qO "${sys_temp}/vksearch.lyrics" 
