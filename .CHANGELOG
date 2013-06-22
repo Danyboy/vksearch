@@ -1,3 +1,8 @@
+0.9-rc2:
+ [+] --user-playlist now accepting multiple arguments
+ [+] download continue support (via wget -c)
+ [*] fixed downloading songs with special symbols * ? < > '   " etc.
+
 0.8-rc:
  [+] Suggest function. Do you ready to enjoy NEW music?
      Example: vksearch --suggest Within Temptation   --  and playlist with 
