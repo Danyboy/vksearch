@@ -59,10 +59,10 @@ for var in $@
 do
  case $var in
   --help) ShowHelp;;
-  --user-playlist) sys_method='audio.get' ;;
+  --user-playlist) sys_method='audio.get' && cfg_search_count='0'  ;;
   --recommended) sys_method='audio.getRecommendations' ;;
   --suggest) cfg_mode=suggest && cfg_search_count='50' ;;
-  --search) sys_method='audio.search' ;;
+  --search) sys_method='audio.search';;
   --play) cfg_mode=play ;;
   --get) cfg_mode=get ;;
   --play-one) cfg_mode=play && cfg_search_count=1 ;;
