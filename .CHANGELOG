@@ -1,3 +1,9 @@
+1.0:
+ [*] First release.
+ [*] Fixed downloading too long files in OS Windows. Downloaded files is now 
+     limited by 70 chars.
+ [+] Added offset support. --count is now unlimited for audio.search.
+
 0.9-rc2:
  [+] --user-playlist now accepting multiple arguments
  [+] download continue support (via wget -c)

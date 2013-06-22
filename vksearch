@@ -7,7 +7,7 @@
 #################################################################
 # для получения нового токена пройдите по ссылке:  
 # https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
-sys_version="0.97-rc3"
+sys_version="1.0"
 sys_temp='/tmp' 
 sys_output='/dev/stderr'
 sys_method='audio.search'
@@ -153,6 +153,8 @@ GetFiles() {
   do
    Info "COLOR_WHITEНачинаю закачку: COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}"
    real_file="$( echo ${song_artists[$i]} - ${song_titles[$i]}.mp3 | sed 's/^[ \t]*//;s/\//_/g;s/\\/_/g;s/:/_/g;s/\*/_/g;s/\?/_/g;s/|/_/g;s/>/_/g;s/</_/g;s/"/_/g;s/&quot;/_/g' | sed s/\'/_/g )"
+   limitation="${real_file:0:70}"
+   [ "${limitation##*.}" != "mp3" ] && real_file="${limitation}.mp3" || real_file="${limitation}"
    wget "${song_urls[$i]}" -cqO "$real_file"
    Info "COLOR_WHITEФайл COLOR_PURPLE${song_artists[$i]} - ${song_titles[$i]}COLOR_WHITE был загружен!"
    [ "$cfg_write_tags" -eq 1 ]  &&  id3 -2 -a "${song_artists[$i]}" -t "${song_titles[$i]}" "${song_artists[$i]} - ${song_titles[$i]}.mp3"
