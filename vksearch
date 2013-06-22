@@ -12,6 +12,7 @@ sys_temp='/tmp'
 sys_output='/dev/stderr'
 sys_method='audio.search'
 vkapi_token='3a582f82cd975ace6015cd56e3e6eb3fff57961dccec60850a6272915f547132d616ae4ea0330a19725b9' 
+cfg_suggest_tracks='1'
 cfg_color_output='1'
 cfg_save_to="."
 cfg_new_playlist='1'
@@ -176,7 +177,7 @@ GetSuggestions() {
     query=${song_artists[$i]}
     wget -qO - "http://ws.audioscrobbler.com/2.0/artist/$query/similar.txt" | awk -F "," '{print $3}' >> ${sys_temp}/vksearch.similar.out
   done
-  echo
+  echo ;
   /bin/sort ${sys_temp}/vksearch.similar.out | uniq | /bin/sort -R | head -n $cfg_search_count > ${sys_temp}/vksearch.similar
 }
 
@@ -204,15 +205,11 @@ case $cfg_mode in
     Info "COLOR_WHITEСоздаю плейлист на основе рекомендуемых исполнителей..."
     cat ${sys_temp}/vksearch.similar | while read line ; do
       echo -n .
-      sys_method="audio.search"
-      cfg_silent_mode='1'
-      cfg_new_playlist='0'
-      cfg_search_count='1';
-      query="$line"
-      Request
+      sys_method="audio.search" && cfg_silent_mode='1' && cfg_new_playlist='0' && cfg_search_count="$cfg_suggest_tracks";
+      query="$line" && Request
       Parse
       MakePlaylist
+      echo ;
     done
-    echo
     Info "COLOR_WHITEПлейлист с рекомендациями сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u"  ;;
 esac
