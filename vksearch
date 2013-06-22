@@ -7,7 +7,7 @@
 #################################################################
 # для получения нового токена пройдите по ссылке:  
 # https://oauth.vk.com/authorize?client_id=3723065&scope=audio,offline&redirect_uri=http://oauth.vk.com/blank.html&display=wap&response_type=token
-sys_version="0.9-rc2"
+sys_version="0.97-rc3"
 sys_temp='/tmp' 
 sys_output='/dev/stderr'
 sys_method='audio.search'
@@ -99,9 +99,12 @@ Request() {
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l) ;;
   "audio.search")
     current_offset=0
+    remain=$cfg_search_count
     for offset in `seq 0 $(($cfg_search_count/300))` ; do
       current_offset=$(($offset*300)) 
-      wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&lyrics=${cfg_request_lyrics}&count=${cfg_search_count}&offset=${current_offset}&access_token=$vkapi_token" -qO - >> "${sys_temp}/vksearch.out" 
+      [ $(($offset*300)) -eq $cfg_search_count ] && continue
+      wget --no-check-certificate "https://api.vk.com/method/audio.search.xml?q=$query&sort=2&auto_complete=1&lyrics=${cfg_request_lyrics}&count=${remain}&offset=${current_offset}&access_token=$vkapi_token" -qO - >> "${sys_temp}/vksearch.out" 
+      remain=$(($remain-300))
     done 
     found=$(cat ${sys_temp}/vksearch.out | grep '<url>'|wc -l)  ;;
   "audio.getLyrics")
