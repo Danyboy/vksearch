@@ -16,6 +16,7 @@ cfg_suggest_tracks='1'
 cfg_color_output='1'
 cfg_save_to="."
 cfg_new_playlist='1'
+cfg_playlist_name='VKontakte_PlayList.m3u'
 cfg_write_tags='0'
 cfg_search_count='300'
 cfg_request_lyrics='0'
@@ -49,6 +50,7 @@ ShowHelp() {
  echo -e "\t--make-playlist: создать плейлист\n"
  echo -e "\t--count=N: искать N треков"
  echo -e "\t--save-to=PATH: сохранять плейлист и треки в указанный PATH"
+ echo -e "\t--playlist-name=NAME: имя плейлиста (по умолчанию: $cfg_playlist_name)"
  echo -e "\t--write-tags: записывать id3 теги в скачанные треки"
  echo -e "\t--get-lyrics: скачать текст песни"
  echo -e "\t--silent: тихий режим"
@@ -74,6 +76,7 @@ do
   --make-playlist) cfg_mode=make-playlist ;;
   --count=*) cfg_search_count=$(echo $var | cut -d '=' -f 2) ;;
   --save-to=*) cfg_save_to=$(echo $var | cut -d '=' -f 2) ;;
+  --playlist-name=*) cfg_playlist_name=$(echo $var | cut -d '=' -f 2) ;;
   --write-tags) cfg_write_tags=1 ;;
   --silent) cfg_silent_mode=1 && cfg_wget="$cfg_silent_wget" ;;
   --*) Info "COLOR_REDОшибка разбора аргументов: Неизвестный параметр COLOR_YELLOW$var" die ;;
@@ -141,13 +144,13 @@ Parse() {
 
 MakePlaylist() {
  cd "$cfg_save_to"
- [ $cfg_new_playlist -eq 1 ] && rm $cfg_save_to/VKontakte_PlayList.m3u 2>&-
- [ -f "$cfg_save_to/VKontakte_PlayList.m3u" ] || echo "#EXTM3U" > "$cfg_save_to/VKontakte_PlayList.m3u"
+ [ $cfg_new_playlist -eq 1 ] && rm "$cfg_save_to/$cfg_playlist_name" 2>&-
+ [ -f "$cfg_save_to/$cfg_playlist_name" ] || echo "#EXTM3U" > "$cfg_save_to/$cfg_playlist_name"
  for i in `seq 0 $song_counts` 
   do
-    echo -e "#EXTINF:${song_durations[$i]},${song_artists[$i]} - ${song_titles[$i]}\n${song_urls[$i]}\n" >> "$cfg_save_to/VKontakte_PlayList.m3u"
+    echo -e "#EXTINF:${song_durations[$i]},${song_artists[$i]} - ${song_titles[$i]}\n${song_urls[$i]}\n" >> "$cfg_save_to/$cfg_playlist_name"
   done 
- [ -f "$cfg_save_to/VKontakte_PlayList.m3u" ] && Info "COLOR_WHITEПлейлист сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u" 
+ [ -f "$cfg_save_to/$cfg_playlist_name" ] && Info "COLOR_WHITEПлейлист сохранен как COLOR_PURPLE$cfg_save_to/$cfg_playlist_name" 
 }
 
 GetFiles() {
@@ -190,7 +193,7 @@ Parse
 case $cfg_mode in
  play)
     MakePlaylist
-    ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.m3u" ;;
+    ${cfg_mplayer} "$cfg_save_to/$cfg_playlist_name" ;;
  get)
     GetFiles ;; 
  make-playlist)
@@ -201,7 +204,7 @@ case $cfg_mode in
     GetLyrics ;;
  suggest)
     GetSuggestions
-    rm "$cfg_save_to/VKontakte_PlayList.m3u" 2>/dev/null
+    rm "$cfg_save_to/$cfg_playlist_name" 2>/dev/null
     Info "COLOR_WHITEНачинаю обработку рекомендуемых исполнителей..."
     cat ${sys_temp}/vksearch.similar | while read query ; do
       sys_method="audio.search" && cfg_silent_mode='1' && cfg_new_playlist='0' && cfg_search_count="$cfg_suggest_tracks";
@@ -209,6 +212,6 @@ case $cfg_mode in
       Parse
       [ "$suggest_mode" == "get" ] &&  cfg_silent_mode='0' GetFiles || MakePlaylist
     done
-    [ "$suggest_mode" == "get" ] &&  Info "COLOR_WHITEФайлы успешно загружены." || Info "COLOR_WHITEПлейлист с рекомендациями сохранен как COLOR_PURPLE$cfg_save_to/VKontakte_PlayList.m3u" 
-    [ "$suggest_mode" == "play" ] &&  ${cfg_mplayer} "$cfg_save_to/VKontakte_PlayList.m3u" ;;
+    [ "$suggest_mode" == "get" ] &&  Info "COLOR_WHITEФайлы успешно загружены." || Info "COLOR_WHITEПлейлист с рекомендациями сохранен как COLOR_PURPLE$cfg_save_to/$cfg_playlist_name" 
+    [ "$suggest_mode" == "play" ] &&  ${cfg_mplayer} "$cfg_save_to/$cfg_playlist_name" ;;
 esac
