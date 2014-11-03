@@ -99,6 +99,7 @@ Request() {
   "audio.get")
     for user in $query; do 
        echo "$user" | grep -qE '[a-zA-Zа-яА-Я0-9]' || continue
+       real_user=$user #fix for groups-id audio like a -3113588
        echo "$user" | grep -qE '[a-zA-Zа-яА-Я]' && real_user=$(GetIdByLink $user)
        wget --no-check-certificate "https://api.vk.com/method/audio.get.xml?oid=$real_user&fields=uid&count=${cfg_search_count}&access_token=$vkapi_token" -qO - >> "${sys_temp}/vksearch.out" 
     done
